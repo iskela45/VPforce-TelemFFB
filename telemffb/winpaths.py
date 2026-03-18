@@ -16,24 +16,12 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
-
-import ctypes, sys
-from ctypes import windll, wintypes
+import sys
 from uuid import UUID
 
-class GUID(ctypes.Structure):   # [1]
-    _fields_ = [
-        ("Data1", wintypes.DWORD),
-        ("Data2", wintypes.WORD),
-        ("Data3", wintypes.WORD),
-        ("Data4", wintypes.BYTE * 8)
-    ] 
 
-    def __init__(self, uuid_):
-        ctypes.Structure.__init__(self)
-        self.Data1, self.Data2, self.Data3, self.Data4[0], self.Data4[1], rest = uuid_.fields
-        for i in range(2, 8):
-            self.Data4[i] = rest>>(8 - i - 1)*8 & 0xff
+class PathNotFoundException(Exception): pass
+
 
 class FOLDERID:     # [2]
     AccountPictures         = UUID('{008ca0b1-55b4-4c56-b8a8-4de4b299d3be}')
@@ -131,30 +119,103 @@ class FOLDERID:     # [2]
     VideosLibrary           = UUID('{491E922F-5643-4AF4-A7EB-4E7A138D8174}')
     Windows                 = UUID('{F38BF404-1D43-42F2-9305-67DE0B28FC23}')
 
-class UserHandle:   # [3]
-    current = wintypes.HANDLE(0)
-    common  = wintypes.HANDLE(-1)
 
-_CoTaskMemFree = windll.ole32.CoTaskMemFree     # [4]
-_CoTaskMemFree.restype= None
-_CoTaskMemFree.argtypes = [ctypes.c_void_p]
+if sys.platform == 'win32':
+    import ctypes
+    from ctypes import windll, wintypes
 
-_SHGetKnownFolderPath = windll.shell32.SHGetKnownFolderPath     # [5] [3]
-_SHGetKnownFolderPath.argtypes = [
-    ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_wchar_p)
-] 
+    class GUID(ctypes.Structure):   # [1]
+        _fields_ = [
+            ("Data1", wintypes.DWORD),
+            ("Data2", wintypes.WORD),
+            ("Data3", wintypes.WORD),
+            ("Data4", wintypes.BYTE * 8)
+        ]
 
-class PathNotFoundException(Exception): pass
+        def __init__(self, uuid_):
+            ctypes.Structure.__init__(self)
+            self.Data1, self.Data2, self.Data3, self.Data4[0], self.Data4[1], rest = uuid_.fields
+            for i in range(2, 8):
+                self.Data4[i] = rest>>(8 - i - 1)*8 & 0xff
 
-def get_path(folderid, user_handle=UserHandle.current):
-    fid = GUID(folderid) 
-    pPath = ctypes.c_wchar_p()
-    S_OK = 0
-    if _SHGetKnownFolderPath(ctypes.byref(fid), 0, user_handle, ctypes.byref(pPath)) != S_OK:
-        raise PathNotFoundException()
-    path = pPath.value
-    _CoTaskMemFree(pPath)
-    return path
+    class UserHandle:   # [3]
+        current = wintypes.HANDLE(0)
+        common  = wintypes.HANDLE(-1)
+
+    _CoTaskMemFree = windll.ole32.CoTaskMemFree     # [4]
+    _CoTaskMemFree.restype = None
+    _CoTaskMemFree.argtypes = [ctypes.c_void_p]
+
+    _SHGetKnownFolderPath = windll.shell32.SHGetKnownFolderPath     # [5] [3]
+    _SHGetKnownFolderPath.argtypes = [
+        ctypes.POINTER(GUID), wintypes.DWORD, wintypes.HANDLE, ctypes.POINTER(ctypes.c_wchar_p)
+    ]
+
+    def get_path(folderid, user_handle=UserHandle.current):
+        fid = GUID(folderid)
+        pPath = ctypes.c_wchar_p()
+        S_OK = 0
+        if _SHGetKnownFolderPath(ctypes.byref(fid), 0, user_handle, ctypes.byref(pPath)) != S_OK:
+            raise PathNotFoundException()
+        path = pPath.value
+        _CoTaskMemFree(pPath)
+        return path
+
+else:
+    import os
+    import logging
+    from pathlib import Path
+
+    # DCS Steam app ID
+    _DCS_STEAM_APP_ID = "223750"
+
+    def _find_linux_saved_games():
+        """Locate the Wine/Proton Saved Games directory containing DCS."""
+        home = Path.home()
+        username = os.environ.get('USER', os.environ.get('USERNAME', 'user'))
+
+        # Proton (Steam) DCS-specific path first
+        steam_roots = [
+            home / '.local' / 'share' / 'Steam',
+            home / '.steam' / 'steam',
+            home / '.steam' / 'Steam',
+        ]
+        for steam_root in steam_roots:
+            dcs_prefix = steam_root / 'steamapps' / 'compatdata' / _DCS_STEAM_APP_ID / 'pfx'
+            sg = dcs_prefix / 'drive_c' / 'users' / 'steamuser' / 'Saved Games'
+            if sg.exists():
+                logging.debug(f"winpaths: Found DCS Proton Saved Games at {sg}")
+                return str(sg)
+
+        # Scan all Proton prefixes for any that have a DCS folder
+        for steam_root in steam_roots:
+            compat = steam_root / 'steamapps' / 'compatdata'
+            if compat.exists():
+                try:
+                    for app_dir in compat.iterdir():
+                        sg = app_dir / 'pfx' / 'drive_c' / 'users' / 'steamuser' / 'Saved Games'
+                        if sg.exists() and any(d.name.startswith('DCS') for d in sg.iterdir() if d.is_dir()):
+                            logging.debug(f"winpaths: Found DCS Saved Games via Proton scan at {sg}")
+                            return str(sg)
+                except PermissionError:
+                    pass
+
+        # Default Wine prefix
+        wine_sg = home / '.wine' / 'drive_c' / 'users' / username / 'Saved Games'
+        if wine_sg.exists():
+            logging.debug(f"winpaths: Found Wine Saved Games at {wine_sg}")
+            return str(wine_sg)
+
+        # Return default path even if it doesn't exist yet
+        default = home / '.wine' / 'drive_c' / 'users' / username / 'Saved Games'
+        logging.debug(f"winpaths: No Saved Games found, returning default {default}")
+        return str(default)
+
+    def get_path(folderid, user_handle=None):
+        if folderid == FOLDERID.SavedGames:
+            return _find_linux_saved_games()
+        raise PathNotFoundException(f"Path lookup not available on this platform for folder {folderid}")
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 2 or sys.argv[1] in ['-?', '/?']:
@@ -171,7 +232,7 @@ if __name__ == '__main__':
         if len(sys.argv) == 2:
             print(get_path(folderid))
         else:
-            print(get_path(folderid, getattr(UserHandle, sys.argv[2])))
+            print(get_path(folderid, sys.argv[2]))
     except PathNotFoundException:
         print('Folder not found "%s"' % ' '.join(sys.argv[1:]), file=sys.stderr)
         sys.exit(1)

@@ -50,7 +50,8 @@ import select
 import logging
 import sys
 
-import winreg
+if sys.platform == 'win32':
+    import winreg
 import socket
 import time
 import zlib
@@ -76,6 +77,18 @@ import telemffb.globals as G
 import telemffb.winpaths as winpaths
 import telemffb.xmlutils as xmlutils
 from .namedmutex import NamedMutex
+
+def get_vpforce_data_dir():
+    """Return the VPForce-TelemFFB application data directory, cross-platform."""
+    if sys.platform == 'win32':
+        return os.path.join(os.environ['LOCALAPPDATA'], "VPForce-TelemFFB")
+    else:
+        try:
+            from platformdirs import user_data_dir
+            return user_data_dir("VPForce-TelemFFB")
+        except ImportError:
+            return os.path.join(os.path.expanduser('~'), '.local', 'share', 'VPForce-TelemFFB')
+
 
 def check_min_firmware_version(dev_firmware_version, min_firmware_version):
     """Check if device firmware version meets minimum requirements."""
@@ -1431,6 +1444,10 @@ def get_dcs_variant():
         str | None
     """
     logging.info("DCS Variant Check: Starting variant discovery via registry and dcs_variant.txt")
+
+    if sys.platform != 'win32':
+        logging.info("DCS Variant Check: Not on Windows, skipping registry lookup")
+        return None
 
     # Try OpenBeta first, then Stable.
     candidate_keys = [

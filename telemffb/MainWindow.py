@@ -27,7 +27,9 @@ import subprocess
 import sys
 import time
 import traceback
-import winreg
+import sys as _sys
+if _sys.platform == 'win32':
+    import winreg
 from collections import OrderedDict
 from datetime import datetime
 
@@ -1059,6 +1061,8 @@ class MainWindow(QMainWindow):
             )
 
     def toggle_start_with_windows(self, set_enabled=None):
+        if sys.platform != 'win32':
+            return False
         exe_path = sys.executable
         reg_key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         reg_key_name = "VPforce TelemFFB"

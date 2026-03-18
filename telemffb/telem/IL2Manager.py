@@ -40,7 +40,16 @@ from dataclasses import dataclass
 from telemffb.telem.TelemParserBase import TelemParserBase
 import telemffb.utils as utils
 import telemffb.globals as G
-import pygetwindow as get_focus_window
+import sys as _sys
+if _sys.platform == 'win32':
+    import pygetwindow as get_focus_window
+else:
+    class _FocusWindowStub:
+        def getActiveWindow(self):
+            class _W:
+                title = ""
+            return _W()
+    get_focus_window = _FocusWindowStub()
 
 from telemffb.utils import hexdump
 import json

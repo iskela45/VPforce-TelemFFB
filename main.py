@@ -130,7 +130,7 @@ def _check_master_instance_mutex():
         if not mutex.acquired:
             msg_box.exec()
             sys.exit(1)
-    except WindowsError:
+    except OSError:
         msg_box.exec()
         sys.exit(1)
 
@@ -296,7 +296,7 @@ def _setup_config_paths():
 
 def _setup_dev_userconfig_paths():
     """Setup development userconfig paths."""
-    real_userconfig_path = os.path.join(os.environ['LOCALAPPDATA'], "VPForce-TelemFFB")
+    real_userconfig_path = utils.get_vpforce_data_dir()
     real_userconfig = os.path.join(real_userconfig_path, 'userconfig_v2.xml')
     real_legacy_userconfig = os.path.join(real_userconfig_path, 'userconfig.xml')
 
@@ -315,7 +315,7 @@ def _setup_dev_userconfig_paths():
 
 def _setup_standard_config_paths():
     """Setup standard configuration paths."""
-    G.userconfig_rootpath = os.path.join(os.environ['LOCALAPPDATA'], "VPForce-TelemFFB")
+    G.userconfig_rootpath = utils.get_vpforce_data_dir()
     G.userconfig_path = os.path.join(G.userconfig_rootpath, 'userconfig_v2.xml')
 
 def _initialize_device_connection():
@@ -457,7 +457,7 @@ def _handle_corrupted_config():
     if ans == QMessageBox.StandardButton.Yes:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M')
         backup_file = os.path.join(G.userconfig_rootpath,
-                                 f'userconfig_{os.environ["USERNAME"]}_{timestamp}_corrupted.bak')
+                                 f'userconfig_{os.environ.get("USERNAME", os.environ.get("USER", "user"))}_{timestamp}_corrupted.bak')
 
         shutil.copy(G.userconfig_path, backup_file)
         logging.debug(f"Backup created: {backup_file}")
@@ -818,7 +818,7 @@ def main():
     _cleanup_on_exit(dev_serial)
 
 def _init_logging(log_widget : QPlainTextEdit):
-    log_folder = os.path.join(os.environ['LOCALAPPDATA'], "VPForce-TelemFFB", 'log')
+    log_folder = os.path.join(utils.get_vpforce_data_dir(), 'log')
     
     sys.stdout = utils.OutLog(log_widget, sys.stdout)
     sys.stderr = utils.OutLog(log_widget, sys.stderr)

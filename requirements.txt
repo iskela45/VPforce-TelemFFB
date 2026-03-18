@@ -1,10 +1,11 @@
 pyqt6==6.9.1
 configobj
-pysimconnect @ https://github.com/walmis/pysimconnect/archive/refs/heads/master.zip
+pysimconnect @ https://github.com/walmis/pysimconnect/archive/refs/heads/master.zip; sys_platform == 'win32'
 pyzmq
 stransi
 libusb1
-pygetwindow
+pygetwindow; sys_platform == 'win32'
 requests
 numpy==2.3.0
 akima
+platformdirs

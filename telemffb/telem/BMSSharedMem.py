@@ -50,6 +50,7 @@ Usage:
 import ctypes
 import ctypes.wintypes
 import logging
+import sys
 import struct
 import time
 from typing import Optional, Dict, Any
@@ -72,52 +73,29 @@ DRAWINGDATA_AREA_SIZE_MAX = 1024 * 1024
 
 logger = logging.getLogger(__name__)
 
-# Windows API function prototypes
-kernel32 = ctypes.windll.kernel32
-
-# OpenFileMappingW prototype
-# HANDLE OpenFileMappingW(
-#   [in] DWORD   dwDesiredAccess,
-#   [in] BOOL    bInheritHandle,
-#   [in] LPCWSTR lpName
-# );
-kernel32.OpenFileMappingW.argtypes = [
-    ctypes.wintypes.DWORD,    # dwDesiredAccess
-    ctypes.wintypes.BOOL,     # bInheritHandle
-    ctypes.wintypes.LPCWSTR   # lpName
-]
-kernel32.OpenFileMappingW.restype = ctypes.wintypes.HANDLE
-
-# MapViewOfFile prototype
-# LPVOID MapViewOfFile(
-#   [in] HANDLE hFileMappingObject,
-#   [in] DWORD  dwDesiredAccess,
-#   [in] DWORD  dwFileOffsetHigh,
-#   [in] DWORD  dwFileOffsetLow,
-#   [in] SIZE_T dwNumberOfBytesToMap
-# );
-kernel32.MapViewOfFile.argtypes = [
-    ctypes.wintypes.HANDLE,   # hFileMappingObject
-    ctypes.wintypes.DWORD,    # dwDesiredAccess
-    ctypes.wintypes.DWORD,    # dwFileOffsetHigh
-    ctypes.wintypes.DWORD,    # dwFileOffsetLow
-    ctypes.c_size_t           # dwNumberOfBytesToMap
-]
-kernel32.MapViewOfFile.restype = ctypes.c_void_p
-
-# UnmapViewOfFile prototype
-# BOOL UnmapViewOfFile(
-#   [in] LPCVOID lpBaseAddress
-# );
-kernel32.UnmapViewOfFile.argtypes = [ctypes.c_void_p]
-kernel32.UnmapViewOfFile.restype = ctypes.wintypes.BOOL
-
-# CloseHandle prototype
-# BOOL CloseHandle(
-#   [in] HANDLE hObject
-# );
-kernel32.CloseHandle.argtypes = [ctypes.wintypes.HANDLE]
-kernel32.CloseHandle.restype = ctypes.wintypes.BOOL
+if sys.platform == 'win32':
+    # Windows API function prototypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.OpenFileMappingW.argtypes = [
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.BOOL,
+        ctypes.wintypes.LPCWSTR
+    ]
+    kernel32.OpenFileMappingW.restype = ctypes.wintypes.HANDLE
+    kernel32.MapViewOfFile.argtypes = [
+        ctypes.wintypes.HANDLE,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.wintypes.DWORD,
+        ctypes.c_size_t
+    ]
+    kernel32.MapViewOfFile.restype = ctypes.c_void_p
+    kernel32.UnmapViewOfFile.argtypes = [ctypes.c_void_p]
+    kernel32.UnmapViewOfFile.restype = ctypes.wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [ctypes.wintypes.HANDLE]
+    kernel32.CloseHandle.restype = ctypes.wintypes.BOOL
+else:
+    kernel32 = None
 
 class StringMap():
     name = "FalconSharedMemoryAreaString"

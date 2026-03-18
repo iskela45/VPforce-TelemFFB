@@ -32,7 +32,17 @@ Author: Valmantas Palikša, Micah Frisby
 License: GPL-3.0
 """
 
-from simconnect import *
+import sys as _sys
+if _sys.platform == 'win32':
+    from simconnect import *
+else:
+    # Stub constants so class definitions succeed on non-Windows.
+    # SimConnect/MSFS is not available on Linux; these methods won't be called.
+    DATATYPE_FLOAT64 = 0
+    DATATYPE_FLOAT32 = 1
+    DATATYPE_INT32 = 2
+    DATATYPE_STRING32 = 3
+    DATATYPE_STRING128 = 4
 from ctypes import byref, cast, sizeof
 from telemffb.utils import dbprint
 import time
